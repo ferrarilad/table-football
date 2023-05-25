@@ -1,2 +1,8 @@
-# table-football
-Webapp to track ELO of table football players.
+# README
+
+Simple UI to track matches of table football across Amazon buildings.
+
+Testing
+```bash
+ streamlit run --server.runOnSave True webapp.py
+```
