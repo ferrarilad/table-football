@@ -143,7 +143,7 @@ def main():
     st.title("Team Management App")
 
     # Create the main navigation menu
-    menu = ["Player Ranking", "Match Registration", "Match History", "Edit Match", "Player Registration"]
+    menu = ["Player Ranking", "Match Registration", "Match History", "Edit/Delete Match", "Player Registration"]
     choice = st.sidebar.selectbox("Menu", menu)
 
     if choice == "Player Ranking":
@@ -154,7 +154,7 @@ def main():
         register_match()
     elif choice == "Match History":
         match_history()
-    elif choice == "Edit Match":
+    elif choice == "Edit/Delete Match":
         edit_match()
 
 
@@ -224,8 +224,15 @@ def match_history():
 def edit_match():
     st.title("Edit Match")
 
+    c.execute("""
+            SELECT 
+                max(id)
+            FROM matches 
+        """)
+    id = c.fetchone()[0]
+
     # Fields to edit match
-    game_id = st.text_input("Enter the Game ID to edit:", value=1)
+    game_id = st.text_input("Enter the Game ID to edit:", value=id)
     match = get_match_info(game_id)
 
     all_players = get_player_aliases()
@@ -278,11 +285,31 @@ def edit_match():
     else:
         st.write("Game ID not found.")
 
+
     # Save button
-    if st.button("Save"):
+    if st.button(":floppy_disk: Save changes"):
         update_match_info(game_id, locale, blue_att, blue_def, red_att, red_def, match_type,
                           blue_score_, red_score_)
         recompute_elo()
+
+    # st.write(":skull_and_crossbones: CLICK BELOW TO DELETE MATCH :skull_and_crossbones:")
+    # Delete button
+    if st.button(":skull_and_crossbones: Delete match"):
+        delete_match(game_id)
+        recompute_elo()
+
+
+# Delete a match give the match_id
+def delete_match(game_id):
+
+    c.execute("""
+        DELETE FROM matches
+        WHERE id = ?
+        """, (game_id,))
+    conn.commit()
+    st.error('Match deleted successfully')
+
+
 
 # Helper functions for database operations
 def get_match_info(game_id):
