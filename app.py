@@ -1,24 +1,31 @@
-import streamlit as st
+import datetime as dt
 import sqlite3
-import pandas as pd
 
-LOCALES = ['IT', 'UK']
+import pandas as pd
+import streamlit as st
+
+LOCALES = ["IT", "UK"]
+USER = "admin"
+PASSWORD = "admin"
 
 # Connect to the SQLite database
-conn = sqlite3.connect('team_entries.db')
+conn = sqlite3.connect("team_entries.db")
 c = conn.cursor()
 
 # Create tables if they don't exist
-c.execute('''
+c.execute(
+    """
     CREATE TABLE IF NOT EXISTS players (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         alias TEXT UNIQUE,
         elo INTEGER,
         games_played INTEGER
     )
-''')
+"""
+)
 
-c.execute('''
+c.execute(
+    """
     CREATE TABLE IF NOT EXISTS matches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         locale TEXT,
@@ -31,7 +38,8 @@ c.execute('''
         red_score INTEGER,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-''')
+"""
+)
 
 
 def get_player_aliases():
@@ -80,18 +88,36 @@ def calculate_elo_rating(team1_rating, team2_rating, team1_result, k_factor=40):
     return tuple(team1_new_ratings), tuple(team2_new_ratings)
 
 
-def log_match(locale, blue_team_att, blue_team_def, red_team_att, red_team_def, match_type, blue_score, red_score):
+def log_match(
+    locale,
+    blue_team_att,
+    blue_team_def,
+    red_team_att,
+    red_team_def,
+    match_type,
+    blue_score,
+    red_score,
+):
     if not valid_teams(blue_team_att, blue_team_def, red_team_att, red_team_def):
-        return st.error('Player names must be different')
+        return st.error("Player names must be different")
 
     if not valid_goals(blue_score, red_score):
-        return st.error('One team must have scored ten goals')
+        return st.error("One team must have scored ten goals")
 
     # Insert the new player into the database with a starting Elo score of 1000
     c.execute(
         "INSERT INTO matches (locale, blue_team_att, blue_team_def, red_team_att, red_team_def, match_type, blue_score, red_score) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (locale, blue_team_att, blue_team_def, red_team_att, red_team_def, match_type, blue_score, red_score)
+        (
+            locale,
+            blue_team_att,
+            blue_team_def,
+            red_team_att,
+            red_team_def,
+            match_type,
+            blue_score,
+            red_score,
+        ),
     )
     conn.commit()
 
@@ -99,18 +125,18 @@ def log_match(locale, blue_team_att, blue_team_def, red_team_att, red_team_def, 
     # Get Elo for each player
     blue_team_elo = c.execute(
         "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
-        [blue_team_att, blue_team_def]
+        [blue_team_att, blue_team_def],
     ).fetchall()
     red_team_elo = c.execute(
         "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
-        [red_team_att, red_team_def]
+        [red_team_att, red_team_def],
     ).fetchall()
 
     blue_team_new_elo, red_team_new_elo = calculate_elo_rating(
         [_[1] for _ in blue_team_elo],
         [_[1] for _ in red_team_elo],
         1 * (blue_score == 10),
-        k_factor=40
+        k_factor=40,
     )
 
     for i, (player_, _, games_played_) in enumerate(blue_team_elo):
@@ -120,7 +146,7 @@ def log_match(locale, blue_team_att, blue_team_def, red_team_att, red_team_def, 
             SET elo = ?, games_played = ?
             WHERE alias = ?;
             """,
-            [blue_team_new_elo[i], games_played_ + 1, player_]
+            [blue_team_new_elo[i], games_played_ + 1, player_],
         )
         conn.commit()
 
@@ -131,7 +157,7 @@ def log_match(locale, blue_team_att, blue_team_def, red_team_att, red_team_def, 
             SET elo = ?, games_played = ?
             WHERE alias = ?;
             """,
-            [red_team_new_elo[i], games_played_ + 1, player_]
+            [red_team_new_elo[i], games_played_ + 1, player_],
         )
         conn.commit()
 
@@ -140,11 +166,22 @@ def log_match(locale, blue_team_att, blue_team_def, red_team_att, red_team_def, 
 
 # Streamlit app
 def main():
-    st.title("Team Management App")
+    st.header("Work Hard, have fun, make history...⚽")
 
     # Create the main navigation menu
-    menu = ["Player Ranking", "Match Registration", "Match History", "Edit/Delete Match", "Player Registration"]
+    menu = [
+        "Player Ranking",
+        "Match Registration",
+        "Match History",
+        "Edit/Delete Match",
+        "Player Registration",
+        "Upload",
+        "Downloads",
+    ]
     choice = st.sidebar.selectbox("Menu", menu)
+
+    usr = st.sidebar.text_input("Username")
+    pwd = st.sidebar.text_input("Pwd", type="password")
 
     if choice == "Player Ranking":
         show_player_ranking()
@@ -156,25 +193,205 @@ def main():
         match_history()
     elif choice == "Edit/Delete Match":
         edit_match()
+    elif choice == "Upload":
+        bulk_upload(usr=usr, pwd=pwd)
+    elif choice == "Downloads":
+        downloads(usr=usr, pwd=pwd)
+
+
+def upload_players(df):
+    try:
+        df = df[["alias", "elo", "games_played"]]
+
+        # df.rename(columns={"index": "id"})
+        c.execute("DELETE FROM players")
+        conn.commit()
+        for i, row in df.iterrows():
+            c.execute(
+                "INSERT INTO players (alias, elo, games_played) VALUES (?, ?, ?)",
+                row,
+            )
+            if i % 10 == 9:
+                conn.commit()
+        conn.commit()
+    except Exception as e:
+        st.write(e)
+
+
+def upload_matches(df):
+    try:
+        df = df[
+            [
+                "locale",
+                "blue_team_att",
+                "blue_team_def",
+                "red_team_att",
+                "red_team_def",
+                "match_type",
+                "blue_score",
+                "red_score",
+                "timestamp",
+            ]
+        ]
+
+        # df.rename(columns={"index": "id"})
+        c.execute("DELETE FROM matches")
+        conn.commit()
+        for i, row in df.iterrows():
+            c.execute(
+                "INSERT INTO matches(locale, blue_team_att, blue_team_def, red_team_att, red_team_def, match_type, blue_score, red_score, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                row,
+            )
+            if i % 10 == 9:
+                conn.commit()
+        conn.commit()
+    except Exception as e:
+        st.write(e)
+
+
+def bulk_upload(usr, pwd):
+    st.subheader("Upload")
+    if usr == USER and pwd == PASSWORD:
+        col1, col2 = st.columns(2)
+        with col1:
+            players_data = st.file_uploader("Upload players data")
+            if players_data is not None:
+                # Can be used wherever a "file-like" object is accepted:
+                players = pd.read_csv(players_data)
+                st.write(
+                    "Preview the data and please ensure that the dataframe contains the following columns:"
+                )
+                st.text(
+                    """
+                    - alias
+                    - elo
+                    - games_played
+                    - 
+                    - 
+                    - 
+                    - 
+                    - 
+                    - """
+                )
+                st.write(players.head(5))
+                st.write("Note that this will overwrite players table:")
+                st.button(
+                    "Confirm upload", key="ply_conf", on_click=upload_players(players)
+                )
+
+        with col2:
+            match_data = st.file_uploader("Upload match data")
+            if match_data is not None:
+                # Can be used wherever a "file-like" object is accepted:
+                matches = pd.read_csv(match_data)
+                st.write(
+                    "Preview the data and please ensure that the dataframe contains the following columns:"
+                )
+                st.text(
+                    """
+                    - locale
+                    - blue_team_att
+                    - blue_team_def
+                    - red_team_att
+                    - red_team_def
+                    - match_type
+                    - blue_score
+                    - red_score
+                    - timestamp"""
+                )
+                st.write(matches.head(5))
+                st.write("Note that this will overwrite matches table:")
+                st.button(
+                    "Confirm upload", key="mtc_conf", on_click=upload_matches(matches)
+                )
+    else:
+        st.subheader("Please log in")
+
+
+def downloads(usr, pwd):
+    st.subheader("Download")
+    if usr == USER and pwd == PASSWORD:
+        c.execute(
+            """
+        SELECT
+             alias
+             , elo
+             , games_played 
+         FROM players 
+         """
+        )
+        player_data = c.fetchall()
+        player = pd.DataFrame(player_data, columns=["alias", "elo", "games_played"])
+
+        c.execute(
+            """
+        SELECT
+             locale
+            , blue_team_att
+            , blue_team_def
+            , red_team_att
+            , red_team_def
+            , match_type
+            , blue_score
+            , red_score
+            , timestamp
+         FROM matches 
+         """
+        )
+
+        matches_data = c.fetchall()
+        matches = pd.DataFrame(
+            matches_data,
+            columns=[
+                "locale",
+                "blue_team_att",
+                "blue_team_def",
+                "red_team_att",
+                "red_team_def",
+                "match_type",
+                "blue_score",
+                "red_score",
+                "timestamp",
+            ],
+        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="Download players data",
+                data=player.to_csv(index=False).encode("utf-8"),
+                file_name=f"players_{dt.date.today()}.csv",
+                mime="text/csv",
+            )
+        with col2:
+            st.download_button(
+                label="Download matches data",
+                data=matches.to_csv(index=False).encode("utf-8"),
+                file_name=f"matches_{dt.date.today()}.csv",
+                mime="text/csv",
+            )
+    else:
+        st.subheader("Please log in")
 
 
 def show_player_ranking():
-    st.title("Player Ranking")
+    st.subheader("Player Ranking")
     st.write("Ranked players by Elo:")
 
     # Retrieve player rankings from the database
-    c.execute("SELECT alias, elo, games_played FROM players ORDER BY elo DESC")
+    c.execute("SELECT alias, elo FROM players ORDER BY elo DESC")
     player_rankings = c.fetchall()
 
     # Display the rankings in a table
-    st.table(pd.DataFrame(player_rankings, columns=['ALIAS', 'ELO', 'GAMES PLAYED']))
+    st.table(pd.DataFrame(player_rankings, columns=["ALIAS", "ELO"]))
 
 
 def match_history():
-    st.title("Match History")
+    st.subheader("Match History")
 
     # Retrieve player rankings from the database
-    c.execute("""
+    c.execute(
+        """
         SELECT 
             id,
             locale,
@@ -189,30 +406,31 @@ def match_history():
         FROM matches 
         ORDER BY timestamp DESC
         LIMIT 10
-    """)
+    """
+    )
     matches = c.fetchall()
 
     st.table(
         pd.DataFrame(
             matches,
             columns=[
-                'GAME_ID',
-                'LOCALE',
-                'BLUE_TEAM_ATT',
-                'BLUE_TEAM_DEF',
-                'RED_TEAM_ATT',
-                'RED_TEAM_DEF',
-                'MATCH_TYPE',
-                'BLUE_SCORE',
-                'RED_SCORE',
-                'TIMESTAMP'
-            ]
+                "GAME_ID",
+                "LOCALE",
+                "BLUE_TEAM_ATT",
+                "BLUE_TEAM_DEF",
+                "RED_TEAM_ATT",
+                "RED_TEAM_DEF",
+                "MATCH_TYPE",
+                "BLUE_SCORE",
+                "RED_SCORE",
+                "TIMESTAMP",
+            ],
         ).fillna(
             {
-                'BLUE_TEAM_ATT': '',
-                'BLUE_TEAM_DEF': '',
-                'RED_TEAM_ATT': '',
-                'RED_TEAM_DEF': ''
+                "BLUE_TEAM_ATT": "",
+                "BLUE_TEAM_DEF": "",
+                "RED_TEAM_ATT": "",
+                "RED_TEAM_DEF": "",
             }
         )
     )
@@ -222,7 +440,7 @@ def match_history():
     #     edit_match()
 
 def edit_match():
-    st.title("Edit Match")
+    st.subheader("Edit Match")
 
     c.execute("""
             SELECT 
@@ -233,6 +451,7 @@ def edit_match():
 
     # Fields to edit match
     game_id = st.text_input("Enter the Game ID to edit:", value=id)
+
     match = get_match_info(game_id)
 
     all_players = get_player_aliases()
@@ -244,13 +463,13 @@ def edit_match():
         blue_team_att_ix = all_players.index(str(blue_team_att))
         blue_team_def = match[3]
         blue_team_def_ix = 0
-        if match_type=='2v2':
+        if match_type == "2v2":
             blue_team_def_ix = all_players.index(str(blue_team_def))
         red_team_att = match[4]
         red_team_att_ix = all_players.index(str(red_team_att))
         red_team_def = match[5]
         red_team_def_ix = 0
-        if match_type == '2v2':
+        if match_type == "2v2":
             red_team_def_ix = all_players.index(str(red_team_def))
             alias_title = "Attacker alias"
         else:
@@ -258,63 +477,80 @@ def edit_match():
         blue_score = match[7]
         red_score = match[8]
 
-
         locale = st.selectbox("locale", LOCALES, index=LOCALES.index(locale))
-        match_type = st.selectbox("Game Type", ["1v1", "2v2"], index=["1v1", "2v2"].index(match_type))
+        match_type = st.selectbox(
+            "Game Type", ["1v1", "2v2"], index=["1v1", "2v2"].index(match_type)
+        )
         # Missing locale and game type
 
         col1, col2 = st.columns(2)
         # Get user input for team aliases
         with col1:
             st.write("Red Team:")
-            red_att = st.selectbox(alias_title, all_players, key='red_att', index=red_team_att_ix)
-            if match_type == '2v2':
-                red_def = st.selectbox("Defender alias", all_players, key='red_def', index=red_team_def_ix)
+            red_att = st.selectbox(
+                alias_title, all_players, key="red_att", index=red_team_att_ix
+            )
+            if match_type == "2v2":
+                red_def = st.selectbox(
+                    "Defender alias", all_players, key="red_def", index=red_team_def_ix
+                )
             else:
                 red_def = None
-            red_score_ = st.number_input("Score", min_value=0, max_value=10, step=1, key='red_score', value=red_score)
+            red_score_ = st.number_input(
+                "Score",
+                min_value=0,
+                max_value=10,
+                step=1,
+                key="red_score",
+                value=red_score,
+            )
 
         with col2:
             st.write("Blue Team:")
-            blue_att = st.selectbox(alias_title, all_players, key='blue_att', index=blue_team_att_ix)
-            if match_type == '2v2':
-                blue_def = st.selectbox("Defender alias", all_players, key='blue_def', index=blue_team_def_ix)
+            blue_att = st.selectbox(
+                alias_title, all_players, key="blue_att", index=blue_team_att_ix
+            )
+            if match_type == "2v2":
+                blue_def = st.selectbox(
+                    "Defender alias",
+                    all_players,
+                    key="blue_def",
+                    index=blue_team_def_ix,
+                )
             else:
                 blue_def = None
-            blue_score_ = st.number_input("Score", min_value=0, max_value=10, step=1, key='blue_score', value = blue_score)
+            blue_score_ = st.number_input(
+                "Score",
+                min_value=0,
+                max_value=10,
+                step=1,
+                key="blue_score",
+                value=blue_score,
+            )
     else:
         st.write("Game ID not found.")
 
-
     # Save button
-    if st.button(":floppy_disk: Save changes"):
-        update_match_info(game_id, locale, blue_att, blue_def, red_att, red_def, match_type,
-                          blue_score_, red_score_)
+    if st.button("Save"):
+        update_match_info(
+            game_id,
+            locale,
+            blue_att,
+            blue_def,
+            red_att,
+            red_def,
+            match_type,
+            blue_score_,
+            red_score_,
+        )
         recompute_elo()
-
-    # st.write(":skull_and_crossbones: CLICK BELOW TO DELETE MATCH :skull_and_crossbones:")
-    # Delete button
-    if st.button(":skull_and_crossbones: Delete match"):
-        delete_match(game_id)
-        recompute_elo()
-
-
-# Delete a match give the match_id
-def delete_match(game_id):
-
-    c.execute("""
-        DELETE FROM matches
-        WHERE id = ?
-        """, (game_id,))
-    conn.commit()
-    st.error('Match deleted successfully')
-
 
 
 # Helper functions for database operations
 def get_match_info(game_id):
     # Retrieve match information from the database based on the game_id
-    c.execute("""
+    c.execute(
+        """
         SELECT 
             id,
             locale,
@@ -327,19 +563,33 @@ def get_match_info(game_id):
             red_score
         FROM matches 
         WHERE id = ?
-    """, (game_id,))
+    """,
+        (game_id,),
+    )
     match = c.fetchone()
     return match
 
-def update_match_info(game_id, locale, blue_team_att, blue_team_def, red_team_att, red_team_def, match_type,blue_score, red_score):
+
+def update_match_info(
+    game_id,
+    locale,
+    blue_team_att,
+    blue_team_def,
+    red_team_att,
+    red_team_def,
+    match_type,
+    blue_score,
+    red_score,
+):
     if not valid_teams(blue_team_att, blue_team_def, red_team_att, red_team_def):
-        return st.error('Player names must be different')
+        return st.error("Player names must be different")
 
     if not valid_goals(blue_score, red_score):
-        return st.error('One team must have scored ten goals')
+        return st.error("One team must have scored ten goals")
 
     # Update the match information in the database based on the game_id
-    c.execute("""
+    c.execute(
+        """
         UPDATE matches 
         SET 
             locale = ?,
@@ -351,10 +601,24 @@ def update_match_info(game_id, locale, blue_team_att, blue_team_def, red_team_at
             blue_score = ?,
             red_score = ?
         WHERE id = ?
-    """, (locale, blue_team_att, blue_team_def, red_team_att, red_team_def, match_type, blue_score, red_score, game_id))
+    """,
+        (
+            locale,
+            blue_team_att,
+            blue_team_def,
+            red_team_att,
+            red_team_def,
+            match_type,
+            blue_score,
+            red_score,
+            game_id,
+        ),
+    )
     conn.commit()
 
     st.success("Match successfully Edited.")
+
+
 
 def recompute_elo():
     # Recalculate ELO scores for all players based on the new match information
@@ -364,7 +628,6 @@ def recompute_elo():
     reset_player_scores()
 
     for match in all_matches:
-
         locale = match[1]
         blue_team_att = match[2]
         blue_team_def = match[3]
@@ -378,18 +641,18 @@ def recompute_elo():
         # Get Elo for each player
         blue_team_elo = c.execute(
             "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
-            [blue_team_att, blue_team_def]
+            [blue_team_att, blue_team_def],
         ).fetchall()
         red_team_elo = c.execute(
             "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
-            [red_team_att, red_team_def]
+            [red_team_att, red_team_def],
         ).fetchall()
 
         blue_team_new_elo, red_team_new_elo = calculate_elo_rating(
             [_[1] for _ in blue_team_elo],
             [_[1] for _ in red_team_elo],
             1 * (blue_score == 10),
-            k_factor=40
+            k_factor=40,
         )
 
         for i, (player_, _, games_played_) in enumerate(blue_team_elo):
@@ -399,7 +662,7 @@ def recompute_elo():
                 SET elo = ?, games_played = ?
                 WHERE alias = ?;
                 """,
-                [blue_team_new_elo[i], games_played_ + 1, player_]
+                [blue_team_new_elo[i], games_played_ + 1, player_],
             )
             conn.commit()
 
@@ -410,7 +673,7 @@ def recompute_elo():
                 SET elo = ?, games_played = ?
                 WHERE alias = ?;
                 """,
-                [red_team_new_elo[i], games_played_ + 1, player_]
+                [red_team_new_elo[i], games_played_ + 1, player_],
             )
             conn.commit()
 
@@ -427,13 +690,15 @@ def reset_player_scores():
             SET elo = ?, games_played = ?
             WHERE alias = ?;
             """,
-            [1000, 0, p]
+            [1000, 0, p],
         )
         conn.commit()
 
+
 def get_all_matches():
     # Retrieve all matches from the database
-    c.execute("""
+    c.execute(
+        """
         SELECT 
             id,
             locale,
@@ -446,12 +711,14 @@ def get_all_matches():
             red_score
         FROM matches 
         ORDER BY timestamp ASC
-    """)
+    """
+    )
     matches = c.fetchall()
     return matches
 
+
 def register_player():
-    st.title("Player Registration")
+    st.subheader("Player Registration")
     st.write("Register a new player")
 
     # Get user input for player alias
@@ -467,13 +734,16 @@ def register_player():
             st.error("Player alias already exists. Please choose a unique alias.")
         else:
             # Insert the new player into the database with a starting Elo score of 1000
-            c.execute("INSERT INTO players (alias, elo, games_played) VALUES (?, ?, ?)", (alias, 1000, 0))
+            c.execute(
+                "INSERT INTO players (alias, elo, games_played) VALUES (?, ?, ?)",
+                (alias, 1000, 0),
+            )
             conn.commit()
             st.success("Player registered successfully!")
 
 
 def register_match():
-    st.title("Match Registration")
+    st.subheader("Match Registration")
     st.write("Register a new match")
 
     # Get user input for game type
@@ -498,17 +768,23 @@ def register_1v1_match():
     # Get user input for team aliases
     with col1:
         st.write("Red Team:")
-        red_alias = st.selectbox("Alias", player_aliases, key='red_att')
-        red_score = st.number_input("Score", min_value=0, max_value=10, step=1, key='red_score')
+        red_alias = st.selectbox("Alias", player_aliases, key="red_att")
+        red_score = st.number_input(
+            "Score", min_value=0, max_value=10, step=1, key="red_score"
+        )
 
     with col2:
         st.write("Blue Team:")
-        blue_alias = st.selectbox("Alias", player_aliases, key='blue_att')
-        blue_score = st.number_input("Score", min_value=0, max_value=10, step=1, key='blue_score')
+        blue_alias = st.selectbox("Alias", player_aliases, key="blue_att")
+        blue_score = st.number_input(
+            "Score", min_value=0, max_value=10, step=1, key="blue_score"
+        )
 
     # Submit button
     if st.button("Register"):
-        log_match(locale, blue_alias, None, red_alias, None, '1v1', blue_score, red_score)
+        log_match(
+            locale, blue_alias, None, red_alias, None, "1v1", blue_score, red_score
+        )
 
 
 def register_2v2_match():
@@ -523,20 +799,26 @@ def register_2v2_match():
     # Get user input for team aliases
     with col1:
         st.write("Red Team:")
-        red_att = st.selectbox("Attacker alias", player_aliases, key='red_att')
-        red_def = st.selectbox("Defender alias", player_aliases, key='red_def')
-        red_score = st.number_input("Score", min_value=0, max_value=10, step=1, key='red_score')
+        red_att = st.selectbox("Attacker alias", player_aliases, key="red_att")
+        red_def = st.selectbox("Defender alias", player_aliases, key="red_def")
+        red_score = st.number_input(
+            "Score", min_value=0, max_value=10, step=1, key="red_score"
+        )
 
     with col2:
         st.write("Blue Team:")
-        blue_att = st.selectbox("Attacker alias", player_aliases, key='blue_att')
-        blue_def = st.selectbox("Defender alias", player_aliases, key='blue_def')
-        blue_score = st.number_input("Score", min_value=0, max_value=10, step=1, key='blue_score')
+        blue_att = st.selectbox("Attacker alias", player_aliases, key="blue_att")
+        blue_def = st.selectbox("Defender alias", player_aliases, key="blue_def")
+        blue_score = st.number_input(
+            "Score", min_value=0, max_value=10, step=1, key="blue_score"
+        )
 
     # Submit button
     if st.button("Register"):
-        log_match(locale, blue_att, blue_def, red_att, red_def, '2v2', blue_score, red_score)
+        log_match(
+            locale, blue_att, blue_def, red_att, red_def, "2v2", blue_score, red_score
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
