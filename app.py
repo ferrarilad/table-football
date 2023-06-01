@@ -173,7 +173,7 @@ def main():
         "Player Ranking",
         "Match Registration",
         "Match History",
-        "Edit Match",
+        "Edit/Delete Match",
         "Player Registration",
         "Upload",
         "Downloads",
@@ -191,7 +191,7 @@ def main():
         register_match()
     elif choice == "Match History":
         match_history()
-    elif choice == "Edit Match":
+    elif choice == "Edit/Delete Match":
         edit_match()
     elif choice == "Upload":
         bulk_upload(usr=usr, pwd=pwd)
@@ -439,12 +439,19 @@ def match_history():
     # if st.button("Edit"):
     #     edit_match()
 
-
 def edit_match():
     st.subheader("Edit Match")
 
+    c.execute("""
+            SELECT 
+                max(id)
+            FROM matches 
+        """)
+    id = c.fetchone()[0]
+
     # Fields to edit match
-    game_id = st.text_input("Enter the Game ID to edit:", value=1)
+    game_id = st.text_input("Enter the Game ID to edit:", value=id)
+
     match = get_match_info(game_id)
 
     all_players = get_player_aliases()
@@ -612,6 +619,7 @@ def update_match_info(
     st.success("Match successfully Edited.")
 
 
+
 def recompute_elo():
     # Recalculate ELO scores for all players based on the new match information
     all_matches = get_all_matches()
@@ -670,7 +678,6 @@ def recompute_elo():
             conn.commit()
 
     st.write("ELO scores recomputed.")
-
 
 def reset_player_scores():
     all_players = get_player_aliases()
