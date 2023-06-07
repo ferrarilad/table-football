@@ -179,7 +179,17 @@ def main():
         "Downloads",
     ]
     choice = st.sidebar.selectbox("Menu", menu)
-
+    st.sidebar.subheader("Instructions")
+    st.sidebar.write(
+        """
+    To participate to the competition: 
+    1. Only the first time: select \"Player Registration\" and add your identifier\n
+    2. Play a match\n
+    3. Register the game in the \"Register match\" section\n
+    4. See your ranking in  \"Player Ranking\"
+    """
+    )
+    st.sidebar.subheader("Only for admins")
     usr = st.sidebar.text_input("Username")
     pwd = st.sidebar.text_input("Pwd", type="password")
 
@@ -375,6 +385,16 @@ def downloads(usr, pwd):
 
 
 def show_player_ranking():
+    st.subheader("Instructions")
+    st.write(
+        """
+    To participate to the competition: 
+    1. Only the first time: select \"Player Registration\" and add your identifier\n
+    2. Play a match\n
+    3. Register the game in the \"Register match\" section\n
+    4. See your ranking in  \"Player Ranking\"
+    """
+    )
     st.subheader("Player Ranking")
     st.write("Ranked players by Elo:")
 
