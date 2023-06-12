@@ -123,12 +123,12 @@ def calculate_elo_rating(team1_rating, team2_rating, team1_result, k_factor=40):
     team2_avg_rating = sum(team2_rating) / len(team2_rating)
 
     team1_expected_score = 1 / (1 + 10 ** ((team2_avg_rating - team1_avg_rating) / 400))
-    team2_expected_score = 1 - team1_expected_score
+    # team2_expected_score = 1 - team1_expected_score
 
     team1_rating_change = k_factor * (team1_result - team1_expected_score)
-    team2_rating_change = k_factor * ((1 - team1_result) - team2_expected_score)
+    # team2_rating_change = k_factor * ((1 - team1_result) - team2_expected_score)
 
-    team1_new_ratings = [int(rating + team1_rating_change) for rating in team1_rating]
-    team2_new_ratings = [int(rating + team2_rating_change) for rating in team2_rating]
+    team1_new_ratings = [rating + int(team1_rating_change) for rating in team1_rating]
+    team2_new_ratings = [rating - int(team1_rating_change) for rating in team2_rating]
 
     return tuple(team1_new_ratings), tuple(team2_new_ratings)
