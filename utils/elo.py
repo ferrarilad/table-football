@@ -122,6 +122,43 @@ def calculate_elo_rating(team1_rating, team2_rating, team1_result, k_factor=40):
     team1_avg_rating = sum(team1_rating) / len(team1_rating)
     team2_avg_rating = sum(team2_rating) / len(team2_rating)
 
+    team1_rating_change = [
+        k_factor * (team1_result - 1 / (1 + 10 ** ((team2_avg_rating - rating) / 400)))
+        for rating in team1_rating
+    ]
+    team2_rating_change = [
+        k_factor
+        * ((1 - team1_result) - 1 / (1 + 10 ** ((team1_avg_rating - rating) / 400)))
+        for rating in team2_rating
+    ]
+
+    team1_new_ratings = [
+        rating + rating_change
+        for rating, rating_change in zip(team1_rating, team1_rating_change)
+    ]
+    team2_new_ratings = [
+        rating + rating_change
+        for rating, rating_change in zip(team2_rating, team2_rating_change)
+    ]
+
+    return tuple(team1_new_ratings), tuple(team2_new_ratings)
+
+
+def calculate_elo_rating_old(team1_rating, team2_rating, team1_result, k_factor=40):
+    """
+    Calculates the new Elo ratings of teams after a match.
+
+    team1_rating: tuple or list of two ints or floats, the current Elo ratings of team 1's players.
+    team2_rating: tuple or list of two ints or floats, the current Elo ratings of team 2's players.
+    team1_result: float, the team1_result of the match (1 for a win, 0.5 for a draw, 0 for a loss).
+    k_factor: int or float, the K-factor determines how much the Elo rating should change.
+              (default value is 32, a commonly used value in chess)
+
+    Returns updated Elo ratings for both teams as tuples.
+    """
+    team1_avg_rating = sum(team1_rating) / len(team1_rating)
+    team2_avg_rating = sum(team2_rating) / len(team2_rating)
+
     team1_expected_score = 1 / (1 + 10 ** ((team2_avg_rating - team1_avg_rating) / 400))
     # team2_expected_score = 1 - team1_expected_score
 
