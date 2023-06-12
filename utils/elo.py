@@ -38,10 +38,10 @@ def reset_player_scores():
         c.execute(
             """
             UPDATE players
-            SET elo = ?, games_played = ?
+            SET elo = ?, games_played = ?, games_won = ?
             WHERE alias = ?;
             """,
-            [1000, 0, p],
+            [1000, 0, 0, p],
         )
         conn.commit()
 
@@ -69,11 +69,11 @@ def recompute_elo():
         # Update elo for all players:
         # Get Elo for each player
         blue_team_elo = c.execute(
-            "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
+            "SELECT alias, elo, games_played, games_won FROM players WHERE alias IN (?, ?)",
             [blue_team_att, blue_team_def],
         ).fetchall()
         red_team_elo = c.execute(
-            "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
+            "SELECT alias, elo, games_played, games_won FROM players WHERE alias IN (?, ?)",
             [red_team_att, red_team_def],
         ).fetchall()
 
@@ -84,25 +84,43 @@ def recompute_elo():
             k_factor=40,
         )
 
-        for i, (player_, _, games_played_) in enumerate(blue_team_elo):
+        for i, (player_, _, games_played_, games_won_) in enumerate(blue_team_elo):
+            new_games_played_ = games_played_ + 1
+            new_games_won_ = games_won_ + 1 * (blue_score == 10)
+            new_win_rate = new_games_won_ / new_games_played_
             c.execute(
                 """
                 UPDATE players
-                SET elo = ?, games_played = ?
+                SET elo = ?, games_played = ?, games_won = ?, win_rate = ?
                 WHERE alias = ?;
                 """,
-                [blue_team_new_elo[i], games_played_ + 1, player_],
+                [
+                    blue_team_new_elo[i],
+                    new_games_played_,
+                    new_games_won_,
+                    new_win_rate,
+                    player_,
+                ],
             )
             conn.commit()
 
-        for i, (player_, _, games_played_) in enumerate(red_team_elo):
+        for i, (player_, _, games_played_, games_won_) in enumerate(red_team_elo):
+            new_games_played_ = games_played_ + 1
+            new_games_won_ = games_won_ + 1 * (blue_score != 10)
+            new_win_rate = new_games_won_ / new_games_played_
             c.execute(
                 """
                 UPDATE players
-                SET elo = ?, games_played = ?
+                SET elo = ?, games_played = ?, games_won = ?, win_rate = ?
                 WHERE alias = ?;
                 """,
-                [red_team_new_elo[i], games_played_ + 1, player_],
+                [
+                    red_team_new_elo[i],
+                    new_games_played_,
+                    new_games_won_,
+                    new_win_rate,
+                    player_,
+                ],
             )
             conn.commit()
 

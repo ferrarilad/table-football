@@ -1,6 +1,5 @@
 import streamlit as st
-
-from utils import get_db_engine, get_db_cursor, page_init
+from utils import get_db_cursor, get_db_engine, page_init
 
 page_init("Player Registration")
 
@@ -25,8 +24,8 @@ if st.button("Register"):
     else:
         # Insert the new player into the database with a starting Elo score of 1000
         c.execute(
-            "INSERT INTO players (alias, elo, games_played) VALUES (?, ?, ?)",
-            (alias, 1000, 0),
+            "INSERT INTO players (alias, elo, games_played, games_won) VALUES (?, ?, ?, ?)",
+            (alias, 1000, 0, 0),
         )
         conn.commit()
         st.success("Player registered successfully!")

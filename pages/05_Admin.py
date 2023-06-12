@@ -1,9 +1,9 @@
 import datetime as dt
-import pandas as pd
 import sqlite3
-import streamlit as st
 
-from utils import get_db_engine, get_db_cursor, page_init
+import pandas as pd
+import streamlit as st
+from utils import get_db_cursor, get_db_engine, page_init
 from utils.helpers import download_string_as_file
 
 USER = "admin"
@@ -23,10 +23,13 @@ if not (usr == USER and pwd == PASSWORD):
 
 def reset_db():
     from sqlalchemy import text
+
     engine = get_db_engine()
 
     with engine.connect() as con:
-        sql = text("select 'drop table ' || name || ';' from sqlite_master where type = 'table';")
+        sql = text(
+            "select 'drop table ' || name || ';' from sqlite_master where type = 'table';"
+        )
         result = con.execute(sql)
         statements = [row[0] for row in result]
 
@@ -38,7 +41,7 @@ def copy_db():
     con = get_db_engine().raw_connection()
     contents = ""
     for line in con.iterdump():
-        contents = contents + ('%s\n' % line)
+        contents = contents + ("%s\n" % line)
     return contents
 
 
@@ -52,8 +55,9 @@ if col2.button("Update DB (Run migrations)"):
     import alembic.config
 
     alembicArgs = [
-        '--raiseerr',
-        'upgrade', 'head',
+        "--raiseerr",
+        "upgrade",
+        "head",
     ]
     alembic.config.main(argv=alembicArgs)
     st.success("You are done!")
@@ -67,14 +71,14 @@ def upload_players(df):
     conn = get_db_engine()
     c = get_db_cursor(conn)
 
-    df = df[["alias", "elo", "games_played"]]
+    df = df[["alias", "elo", "games_played", "games_won", "win_rate"]]
 
     # df.rename(columns={"index": "id"})
     c.execute("DELETE FROM players")
     conn.commit()
     for i, row in df.iterrows():
         c.execute(
-            "INSERT INTO players (alias, elo, games_played) VALUES (?, ?, ?)",
+            "INSERT INTO players (alias, elo, games_played, games_won, win_rate) VALUES (?, ?, ?, ?, ?)",
             row,
         )
         if i % 10 == 9:
@@ -96,14 +100,13 @@ with col1:
             - alias
             - elo
             - games_played
+            - games_won
+            - win_rate
             """
         )
         st.write(players.head(5))
         st.write("Note that this will overwrite players table:")
-        if st.button(
-                label="Confirm upload",
-                key="ply_conf"
-        ):
+        if st.button(label="Confirm upload", key="ply_conf"):
             try:
                 upload_players(players)
                 st.success("Done!")
@@ -169,8 +172,8 @@ with col2:
         st.write("Note that this will overwrite matches table:")
 
         if st.button(
-                label="Confirm upload",
-                key="mtc_conf",
+            label="Confirm upload",
+            key="mtc_conf",
         ):
             try:
                 upload_matches(matches)
@@ -205,10 +208,7 @@ def download_players():
     )
 
 
-col1.button(
-    label="Download players data",
-    on_click=download_players
-)
+col1.button(label="Download players data", on_click=download_players)
 
 
 def download_matches():
@@ -216,7 +216,8 @@ def download_matches():
     print(conn)
     c = get_db_cursor(conn)
 
-    c.execute("""
+    c.execute(
+        """
     SELECT
             locale
         , blue_team_att
@@ -228,7 +229,8 @@ def download_matches():
         , red_score
         , timestamp
         FROM matches 
-    """)
+    """
+    )
 
     matches_data = c.fetchall()
     matches = pd.DataFrame(
@@ -247,8 +249,7 @@ def download_matches():
     )
 
     download_string_as_file(
-        matches.to_csv(index=False),
-        f"matches_{dt.date.today()}.csv"
+        matches.to_csv(index=False), f"matches_{dt.date.today()}.csv"
     )
 
 

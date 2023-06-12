@@ -1,8 +1,7 @@
 import streamlit as st
-
-from utils import get_db_engine, get_db_cursor, page_init, LOCALES
+from utils import LOCALES, get_db_cursor, get_db_engine, page_init
 from utils.elo import calculate_elo_rating
-from utils.games import get_player_aliases, valid_teams, valid_goals
+from utils.games import get_player_aliases, valid_goals, valid_teams
 
 page_init("Match Registration")
 
@@ -72,14 +71,14 @@ def register_2v2_match():
 
 
 def log_match(
-        locale,
-        blue_team_att,
-        blue_team_def,
-        red_team_att,
-        red_team_def,
-        match_type,
-        blue_score,
-        red_score,
+    locale,
+    blue_team_att,
+    blue_team_def,
+    red_team_att,
+    red_team_def,
+    match_type,
+    blue_score,
+    red_score,
 ):
     if not valid_teams(blue_team_att, blue_team_def, red_team_att, red_team_def):
         return st.error("Player names must be different")
@@ -110,11 +109,11 @@ def log_match(
     # Update elo for all players:
     # Get Elo for each player
     blue_team_elo = c.execute(
-        "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
+        "SELECT alias, elo, games_played, games_won FROM players WHERE alias IN (?, ?)",
         [blue_team_att, blue_team_def],
     ).fetchall()
     red_team_elo = c.execute(
-        "SELECT alias, elo, games_played FROM players WHERE alias IN (?, ?)",
+        "SELECT alias, elo, games_played, games_won FROM players WHERE alias IN (?, ?)",
         [red_team_att, red_team_def],
     ).fetchall()
 
@@ -125,25 +124,43 @@ def log_match(
         k_factor=40,
     )
 
-    for i, (player_, _, games_played_) in enumerate(blue_team_elo):
+    for i, (player_, _, games_played_, games_won_) in enumerate(blue_team_elo):
+        new_games_played_ = games_played_ + 1
+        new_games_won_ = games_won_ + 1 * (blue_score == 10)
+        new_win_rate = new_games_won_ / new_games_played_
         c.execute(
             """
             UPDATE players
-            SET elo = ?, games_played = ?
+            SET elo = ?, games_played = ?, games_won = ?, win_rate = ?
             WHERE alias = ?;
             """,
-            [blue_team_new_elo[i], games_played_ + 1, player_],
+            [
+                blue_team_new_elo[i],
+                new_games_played_,
+                new_games_won_,
+                new_win_rate,
+                player_,
+            ],
         )
         conn.commit()
 
-    for i, (player_, _, games_played_) in enumerate(red_team_elo):
+    for i, (player_, _, games_played_, games_won_) in enumerate(red_team_elo):
+        new_games_played_ = games_played_ + 1
+        new_games_won_ = games_won_ + 1 * (blue_score != 10)
+        new_win_rate = new_games_won_ / new_games_played_
         c.execute(
             """
             UPDATE players
-            SET elo = ?, games_played = ?
+            SET elo = ?, games_played = ?, games_won = ?, win_rate = ?
             WHERE alias = ?;
             """,
-            [red_team_new_elo[i], games_played_ + 1, player_],
+            [
+                red_team_new_elo[i],
+                new_games_played_,
+                new_games_won_,
+                new_win_rate,
+                player_,
+            ],
         )
         conn.commit()
 

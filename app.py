@@ -44,11 +44,13 @@ def show_player_ranking():
 
     # Retrieve player rankings from the database
     c.execute(
-        "SELECT LOWER(alias) as alias, elo, games_played FROM players WHERE games_played > 0 ORDER BY elo DESC"
+        "SELECT LOWER(alias) as alias, elo, games_played, games_won, win_rate FROM players WHERE games_played > 0 ORDER BY elo DESC"
     )
     player_rankings = c.fetchall()
 
-    df = pd.DataFrame(player_rankings, columns=["ALIAS", "ELO", "GAMES"]).reset_index()
+    df = pd.DataFrame(
+        player_rankings, columns=["ALIAS", "ELO", "GAMES", "GAMES WON", "WIN RATE"]
+    ).reset_index()
     df["index"] = df["index"] + 1
     df.set_index("index", inplace=True)
     df["ELO"] = df["ELO"].astype(int)
@@ -58,8 +60,13 @@ def show_player_ranking():
         axis=1,
     )
 
+    df["WIN RATE"] = df.apply(
+        lambda x: f'{x["WIN RATE"]:.1%}',
+        axis=1,
+    )
+
     # Display the rankings in a table
-    st.table(df[["ALIAS", "ELO"]])
+    st.table(df[["ALIAS", "ELO", "WIN RATE"]])
 
 
 if __name__ == "__main__":
