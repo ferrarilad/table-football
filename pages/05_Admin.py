@@ -196,11 +196,15 @@ def download_players():
             alias
             , elo
             , games_played 
+            , games_won
+            , win_rate
         FROM players 
         """
     )
     player_data = c.fetchall()
-    player = pd.DataFrame(player_data, columns=["alias", "elo", "games_played"])
+    player = pd.DataFrame(
+        player_data, columns=["alias", "elo", "games_played", "games_won", "win_rate"]
+    )
 
     download_string_as_file(
         player.to_csv(index=False),
