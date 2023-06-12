@@ -20,7 +20,7 @@ def page_init(title: str):
 def get_db_engine():
     import sqlite3
 
-    return sqlite3.connect("database/database.db")
+    return sqlite3.connect("./database.db")
 
 
 def get_db_cursor(engine):
