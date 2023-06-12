@@ -37,18 +37,20 @@ def show_player_ranking():
     """
     )
 
-    st.write("Ranked players by Elo:")
+    st.write("Ranked players by Elo (showing only players with 1 match registered):")
 
     conn = get_db_engine()
     c = get_db_cursor(conn)
 
     # Retrieve player rankings from the database
     c.execute(
-        "SELECT LOWER(alias) as alias, elo, games_played FROM players ORDER BY elo DESC"
+        "SELECT LOWER(alias) as alias, elo, games_played FROM players WHERE games_played > 0 ORDER BY elo DESC"
     )
     player_rankings = c.fetchall()
 
-    df = pd.DataFrame(player_rankings, columns=["ALIAS", "ELO", "GAMES"])
+    df = pd.DataFrame(player_rankings, columns=["ALIAS", "ELO", "GAMES"]).reset_index()
+    df["index"] = df["index"] + 1
+    df.set_index("index", inplace=True)
     df["ELO"] = df["ELO"].astype(int)
 
     df["ALIAS"] = df.apply(
