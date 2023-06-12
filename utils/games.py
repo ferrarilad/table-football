@@ -6,7 +6,7 @@ def get_player_aliases():
     c = get_db_cursor(conn)
 
     # Retrieve player aliases from the database
-    c.execute("SELECT alias FROM players")
+    c.execute("SELECT LOWER(alias) as alias FROM players")
     player_aliases = c.fetchall()
 
     # Flatten the list of aliases
