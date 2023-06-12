@@ -1,4 +1,4 @@
-from . import get_db_engine, get_db_cursor
+from . import get_db_cursor, get_db_engine
 from .games import get_player_aliases
 
 
