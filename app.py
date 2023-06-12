@@ -1,7 +1,8 @@
+import numpy as np
 import pandas as pd
 import streamlit as st
 
-from utils import get_db_engine, get_db_cursor, page_init
+from utils import get_db_cursor, get_db_engine, page_init
 
 page_init("Player Ranking")
 
@@ -42,10 +43,13 @@ def show_player_ranking():
     c = get_db_cursor(conn)
 
     # Retrieve player rankings from the database
-    c.execute("SELECT LOWER(alias) as alias, elo, games_played FROM players ORDER BY elo DESC")
+    c.execute(
+        "SELECT LOWER(alias) as alias, elo, games_played FROM players ORDER BY elo DESC"
+    )
     player_rankings = c.fetchall()
 
     df = pd.DataFrame(player_rankings, columns=["ALIAS", "ELO", "GAMES"])
+    df["ELO"] = int(np.floor(df["ELO"])).astype(int)
 
     df["ALIAS"] = df.apply(
         lambda x: f'🆕 {x["ALIAS"]}' if x["GAMES"] == 0 else x["ALIAS"],
