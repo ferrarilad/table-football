@@ -49,7 +49,7 @@ def show_player_ranking():
     player_rankings = c.fetchall()
 
     df = pd.DataFrame(player_rankings, columns=["ALIAS", "ELO", "GAMES"])
-    df["ELO"] = int(np.floor(df["ELO"])).astype(int)
+    df["ELO"] = df["ELO"].astype(int)
 
     df["ALIAS"] = df.apply(
         lambda x: f'🆕 {x["ALIAS"]}' if x["GAMES"] == 0 else x["ALIAS"],
