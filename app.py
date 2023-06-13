@@ -1,14 +1,42 @@
-import numpy as np
-import pandas as pd
 import streamlit as st
 
-from utils import get_db_cursor, get_db_engine, page_init
+from utils import page_init
 
-page_init("Player Ranking")
+page_init("Work Hard, have fun, make history...⚽")
+
+st.subheader("!!! This is not a classic tournament !!!")
+st.write(
+    """
+The competition we are currently proposing is based on [ELO](https://en.wikipedia.org/wiki/Elo_rating_system) that is a method for calculating the relative skill levels of players.  
+Each time you play a match your score increases by an amount that depends on your team average ELO and the opposing team average ELO.  
+
+Maybe in September we will host a real tournament (who knows!) in the meantime lets make this RTO epic and get to know each other!  
+"""
+)
+st.markdown("""---""")
+st.write(
+    """
+  __TLDR:__  
+If you win against a strong team you will gain a lot of points (maximum 40) if you lose against a strong team you will lose few points.
+The higher you are in the ranking the strongest you are. 
+"""
+)
+st.markdown("""---""")
+st.subheader("Instructions")
+st.write(
+    """
+To participate to the competition: 
+1. Only the first time: select \"Player Registration\" and add your identifier\n
+
+2. Play a match\n
+3. Register the game in the \"Register match\" section\n
+4. See your ranking in  \"Player Ranking\"
+"""
+)
 
 
 def main():
-    st.header("Work Hard, have fun, make history...⚽")
+    # st.header("Work Hard, have fun, make history...⚽")
 
     st.sidebar.subheader("Instructions")
     st.sidebar.write(
@@ -20,53 +48,6 @@ def main():
     4. See your ranking in  \"Player Ranking\"
     """
     )
-
-    show_player_ranking()
-
-
-def show_player_ranking():
-    st.subheader("Instructions")
-    st.write(
-        """
-    To participate to the competition: 
-    1. Only the first time: select \"Player Registration\" and add your identifier\n
-
-    2. Play a match\n
-    3. Register the game in the \"Register match\" section\n
-    4. See your ranking in  \"Player Ranking\"
-    """
-    )
-
-    st.write("Ranked players by Elo (showing only players with 1 match registered):")
-
-    conn = get_db_engine()
-    c = get_db_cursor(conn)
-
-    # Retrieve player rankings from the database
-    c.execute(
-        "SELECT LOWER(alias) as alias, elo, games_played, games_won, win_rate FROM players WHERE games_played > 0 ORDER BY elo DESC"
-    )
-    player_rankings = c.fetchall()
-
-    df = pd.DataFrame(
-        player_rankings, columns=["ALIAS", "ELO", "GAMES", "GAMES WON", "WIN RATE"]
-    ).reset_index()
-    df["index"] = df["index"] + 1
-    df.set_index("index", inplace=True)
-    df["ELO"] = df["ELO"].astype(int)
-
-    df["ALIAS"] = df.apply(
-        lambda x: f'🆕 {x["ALIAS"]}' if x["GAMES"] == 0 else x["ALIAS"],
-        axis=1,
-    )
-
-    df["WIN RATE"] = df.apply(
-        lambda x: f'{x["WIN RATE"]:.1%}',
-        axis=1,
-    )
-
-    # Display the rankings in a table
-    st.table(df[["ALIAS", "ELO", "WIN RATE"]])
 
 
 if __name__ == "__main__":

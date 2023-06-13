@@ -1,9 +1,9 @@
 import pandas as pd
 import streamlit as st
-
-from utils import get_db_engine, get_db_cursor, page_init, LOCALES
+from utils import LOCALES, get_db_cursor, get_db_engine, page_init
 from utils.elo import recompute_elo
-from utils.games import get_player_aliases, valid_teams, valid_goals
+from utils.games import get_player_aliases, valid_goals, valid_teams
+
 
 # Helper functions for database operations
 def get_match_info(game_id):
@@ -34,15 +34,15 @@ def get_match_info(game_id):
 
 
 def update_match_info(
-        game_id,
-        locale,
-        blue_team_att,
-        blue_team_def,
-        red_team_att,
-        red_team_def,
-        match_type,
-        blue_score,
-        red_score,
+    game_id,
+    locale,
+    blue_team_att,
+    blue_team_def,
+    red_team_att,
+    red_team_def,
+    match_type,
+    blue_score,
+    red_score,
 ):
     if not valid_teams(blue_team_att, blue_team_def, red_team_att, red_team_def):
         return st.error("Player names must be different")
@@ -136,10 +136,7 @@ st.table(matches)
 
 with st.expander("Edit Match"):
     # Fields to edit match
-    game_id = st.text_input(
-        "Enter the Game ID to edit:",
-        value=matches.iloc[0].GAME_ID
-    )
+    game_id = st.text_input("Enter the Game ID to edit:", value=matches.iloc[0].GAME_ID)
     match = get_match_info(game_id)
 
     if not match:
@@ -170,9 +167,7 @@ with st.expander("Edit Match"):
 
     locale = st.selectbox("locale", LOCALES, index=LOCALES.index(locale))
     match_type_sel = st.selectbox(
-        "Game Type",
-        ["1v1", "2v2"],
-        index=["1v1", "2v2"].index(match_type)
+        "Game Type", ["1v1", "2v2"], index=["1v1", "2v2"].index(match_type)
     )
     # Missing locale and game type
 
