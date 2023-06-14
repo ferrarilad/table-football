@@ -31,6 +31,8 @@ To participate to the competition:
 2. Play a match\n
 3. Register the game in the \"Register match\" section\n
 4. See your ranking in  \"Player Ranking\"
+
+See you on slack: ```#lin11-table-football```.
 """
 )
 
